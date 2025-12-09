@@ -1,0 +1,52 @@
+name: Build Vite app with LaTeX prebuild
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths: 
+            - content/**
+            - content
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm' 
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install LaTeX packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-plain-generic \
+            texlive-fonts-recommended \
+            texlive-lang-japanese \
+            poppler-utils
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Prepare html and sitemap
+        run: npm run build-tex
+        working-directory: app
+
+      - name: Build app
+        run: npm run build
+        working-directory: app
+      
+      - name: Deploy 🚀   
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: app/dist
