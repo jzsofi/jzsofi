@@ -9,89 +9,55 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PublicationsIndexRouteImport } from './routes/publications/index'
-import { Route as OngoingIndexRouteImport } from './routes/ongoing/index'
-import { Route as PublicationsSplatRouteImport } from './routes/publications/$'
-import { Route as OngoingSplatRouteImport } from './routes/ongoing/$'
 
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PublicationsIndexRoute = PublicationsIndexRouteImport.update({
-  id: '/publications/',
-  path: '/publications/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OngoingIndexRoute = OngoingIndexRouteImport.update({
-  id: '/ongoing/',
-  path: '/ongoing/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PublicationsSplatRoute = PublicationsSplatRouteImport.update({
-  id: '/publications/$',
-  path: '/publications/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OngoingSplatRoute = OngoingSplatRouteImport.update({
-  id: '/ongoing/$',
-  path: '/ongoing/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/ongoing/$': typeof OngoingSplatRoute
-  '/publications/$': typeof PublicationsSplatRoute
-  '/ongoing': typeof OngoingIndexRoute
-  '/publications': typeof PublicationsIndexRoute
+  '/$': typeof SplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ongoing/$': typeof OngoingSplatRoute
-  '/publications/$': typeof PublicationsSplatRoute
-  '/ongoing': typeof OngoingIndexRoute
-  '/publications': typeof PublicationsIndexRoute
+  '/$': typeof SplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/ongoing/$': typeof OngoingSplatRoute
-  '/publications/$': typeof PublicationsSplatRoute
-  '/ongoing/': typeof OngoingIndexRoute
-  '/publications/': typeof PublicationsIndexRoute
+  '/$': typeof SplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/ongoing/$'
-    | '/publications/$'
-    | '/ongoing'
-    | '/publications'
+  fullPaths: '/' | '/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ongoing/$' | '/publications/$' | '/ongoing' | '/publications'
-  id:
-    | '__root__'
-    | '/'
-    | '/ongoing/$'
-    | '/publications/$'
-    | '/ongoing/'
-    | '/publications/'
+  to: '/' | '/$'
+  id: '__root__' | '/' | '/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  OngoingSplatRoute: typeof OngoingSplatRoute
-  PublicationsSplatRoute: typeof PublicationsSplatRoute
-  OngoingIndexRoute: typeof OngoingIndexRoute
-  PublicationsIndexRoute: typeof PublicationsIndexRoute
+  SplatRoute: typeof SplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -99,43 +65,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/publications/': {
-      id: '/publications/'
-      path: '/publications'
-      fullPath: '/publications'
-      preLoaderRoute: typeof PublicationsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ongoing/': {
-      id: '/ongoing/'
-      path: '/ongoing'
-      fullPath: '/ongoing'
-      preLoaderRoute: typeof OngoingIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/publications/$': {
-      id: '/publications/$'
-      path: '/publications/$'
-      fullPath: '/publications/$'
-      preLoaderRoute: typeof PublicationsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ongoing/$': {
-      id: '/ongoing/$'
-      path: '/ongoing/$'
-      fullPath: '/ongoing/$'
-      preLoaderRoute: typeof OngoingSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  OngoingSplatRoute: OngoingSplatRoute,
-  PublicationsSplatRoute: PublicationsSplatRoute,
-  OngoingIndexRoute: OngoingIndexRoute,
-  PublicationsIndexRoute: PublicationsIndexRoute,
+  SplatRoute: SplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

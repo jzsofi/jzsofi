@@ -6,20 +6,23 @@ on:
         branches:
             - main
         paths: 
-            - content/**
             - content
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions: 
+      contents: write
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          token: ${{ secrets.ACTION_PAT }}
         
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
           cache: 'npm' 
           cache-dependency-path: app/package-lock.json
 
@@ -50,3 +53,4 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: app/dist
+          token: ${{ secrets.GITHUB_TOKEN }}

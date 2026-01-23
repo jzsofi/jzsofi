@@ -1,6 +1,6 @@
-import { useTypesetOnLoad } from '@/hooks/useTypesetOnLoad'
 import { Box } from '@mui/material'
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
 
 export const Route = createFileRoute('/')({
   component: App,
@@ -17,7 +17,13 @@ export const Route = createFileRoute('/')({
 
 function App() {
   const { body } = Route.useLoaderData()
-  useTypesetOnLoad()
+
+  useEffect(() => {
+    ;(async () => {
+      await window.MathJax.typesetPromise().catch(() => {})
+    })()
+  }, [body])
+
   return (
     <Box component={'div'} dangerouslySetInnerHTML={{ __html: body }}></Box>
   )
