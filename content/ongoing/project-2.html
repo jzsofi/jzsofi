@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8" />
+<meta name="generator" content="LaTeX Lwarp package" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Equation Playground and Log Page</title>
+<link rel="stylesheet" type="text/css" href="lwarp.css" />
+
+<script>
+// Lwarp MathJax emulation code
+//
+// Based on code by Davide P. Cervone.
+// Equation numbering: https://github.com/mathjax/MathJax/issues/2427
+// Starred and ifnextchar macros: https://github.com/mathjax/MathJax/issues/2428
+// \left, \right delimiters: https://github.com/mathjax/MathJax/issues/2535
+//
+// Modified by Brian Dunn to adjust equation numbering and add subequations.
+//
+// LaTeX can use \seteqnumber{subequations?}{section}{number} before each equation.
+// subequations? is 0 usually, 1 if inside subequations.
+// section is a string printed as-is, or empty.
+// number is auto-incremented by MathJax between equations.
+//
+MathJax = {
+    subequations: "0",
+    section: "",
+    loader: {
+        load: ['[tex]/tagformat', '[tex]/textmacros'],
+    },
+    startup: {
+        ready() {
+            //      These would be replaced by import commands if you wanted to make
+            //      a proper extension.
+            const Configuration = MathJax._.input.tex.Configuration.Configuration;
+            const CommandMap = MathJax._.input.tex.SymbolMap.CommandMap;
+            const Macro = MathJax._.input.tex.Symbol.Macro;
+            const TexError = MathJax._.input.tex.TexError.default;
+            const ParseUtil = MathJax._.input.tex.ParseUtil.default;
+            const expandable = MathJax._.util.Options.expandable;
+
+
+            //      Insert the replacement string into the TeX string, and check
+            //      that there haven't been too many maxro substitutions (prevents
+            //      infinite loops).
+            const useArgument = (parser, text) => {
+                parser.string = ParseUtil.addArgs(parser, text, parser.string.slice(parser.i));
+                parser.i = 0;
+                if (++parser.macroCount > parser.configuration.options.maxMacros) {
+                    throw new TexError('MaxMacroSub1',
+                    'MathJax maximum macro substitution count exceeded; ' +
+                    'is there a recursive macro call?');
+                }
+            }
+
+
+            //      Create the command map for:
+            //          \ifstar, \ifnextchar, \ifblank, \ifstrequal, \gsub, \seteqnumber
+            new CommandMap('Lwarp-macros', {
+                ifstar: 'IfstarFunction',
+                ifnextchar: 'IfnextcharFunction',
+                ifblank: 'IfblankFunction',
+                ifstrequal: 'IfstrequalFunction',
+                gsubstitute: 'GsubstituteFunction',
+                seteqnumber: 'SeteqnumberFunction'
+            }, {
+                //      This function implements an ifstar macro.
+                IfstarFunction(parser, name) {
+                    const resultstar = parser.GetArgument(name);
+                    const resultnostar = parser.GetArgument(name);
+                    const star = parser.GetStar();                      // true if there is a *
+                    useArgument(parser, star ? resultstar : resultnostar);
+                },
+
+
+                //      This function implements an ifnextchar macro.
+                IfnextcharFunction(parser, name) {
+                    let whichchar = parser.GetArgument(name);
+                    if (whichchar.match(/^(?:0x[0-9A-F]+|[0-9]+)$/i)) {
+                        // $ syntax highlighting
+                        whichchar = String.fromCodePoint(parseInt(whichchar));
+                    }
+                    const resultnextchar = parser.GetArgument(name);
+                    const resultnotnextchar = parser.GetArgument(name);
+                    const gotchar = (parser.GetNext() === whichchar);
+                    useArgument(parser, gotchar ? resultnextchar : resultnotnextchar);
+                },
+
+
+                // This function implements an ifblank macro.
+                IfblankFunction(parser, name) {
+                    const blankarg = parser.GetArgument(name);
+                    const resultblank = parser.GetArgument(name);
+                    const resultnotblank = parser.GetArgument(name);
+                    const isblank = (blankarg.trim() == "");
+                    useArgument(parser, isblank ? resultblank : resultnotblank);
+                },
+
+
+                // This function implements an ifstrequal macro.
+                IfstrequalFunction(parser, name) {
+                    const strequalfirst = parser.GetArgument(name);
+                    const strequalsecond = parser.GetArgument(name);
+                    const resultequal = parser.GetArgument(name);
+                    const resultnotequal = parser.GetArgument(name);
+                    const isequal = (strequalfirst == strequalsecond);
+                    useArgument(parser, isequal ? resultequal : resultnotequal);
+                },
+
+
+                // This function implements a gsub macro.
+                GsubstituteFunction(parser, name) {
+                    const gsubfirst = parser.GetArgument(name);
+                    const gsubsecond = parser.GetArgument(name);
+                    const gsubthird = parser.GetArgument(name);
+                    let gsubresult=gsubfirst.replace(gsubsecond, gsubthird);
+                    useArgument(parser, gsubresult);
+                },
+
+
+                //      This function modifies the equation numbers.
+                SeteqnumberFunction(parser, name) {
+                        //   Get the macro parameters
+                        const star = parser.GetStar();                    // true if there is a *
+                        const optBrackets = parser.GetBrackets(name);     // contents of optional brackets
+                        const newsubequations = parser.GetArgument(name);    // the subequations argument
+                        const neweqsection = parser.GetArgument(name);    // the eq section argument
+                        const neweqnumber = parser.GetArgument(name);     // the eq number argument
+                        MathJax.config.subequations=newsubequations ;     // a string with boolean meaning
+                        MathJax.config.section=neweqsection ;             // a string with numeric meaning
+                        parser.tags.counter = parser.tags.allCounter = neweqnumber ;
+                }
+
+
+            });
+
+
+            //      Create the Lwarp-macros package
+            Configuration.create('Lwarp-macros', {
+                handler: {macro: ['Lwarp-macros']}
+            });
+
+
+            MathJax.startup.defaultReady();
+
+
+            // For forward references:
+            MathJax.startup.input[0].preFilters.add(({math}) => {
+                if (math.inputData.recompile){
+                        MathJax.config.subequations = math.inputData.recompile.subequations;
+                        MathJax.config.section = math.inputData.recompile.section;
+                }
+            });
+            MathJax.startup.input[0].postFilters.add(({math}) => {
+                if (math.inputData.recompile){
+                        math.inputData.recompile.subequations = MathJax.config.subequations;
+                        math.inputData.recompile.section = MathJax.config.section;
+                }
+            });
+
+
+                // For \left, \right with unicode-math:
+                const {DelimiterMap} = MathJax._.input.tex.SymbolMap;
+                const {Symbol} = MathJax._.input.tex.Symbol;
+                const {MapHandler} = MathJax._.input.tex.MapHandler;
+                const delimiter = MapHandler.getMap('delimiter');
+                delimiter.add('\\lBrack', new Symbol('\\lBrack', '\u27E6'));
+                delimiter.add('\\rBrack', new Symbol('\\rBrack', '\u27E7'));
+                delimiter.add('\\lAngle', new Symbol('\\lAngle', '\u27EA'));
+                delimiter.add('\\rAngle', new Symbol('\\rAngle', '\u27EB'));
+                delimiter.add('\\lbrbrak', new Symbol('\\lbrbrak', '\u2772'));
+                delimiter.add('\\rbrbrak', new Symbol('\\rbrbrak', '\u2773'));
+                delimiter.add('\\lbag', new Symbol('\\lbag', '\u27C5'));
+                delimiter.add('\\rbag', new Symbol('\\rbag', '\u27C6'));
+                delimiter.add('\\llparenthesis', new Symbol('\\llparenthesis', '\u2987'));
+                delimiter.add('\\rrparenthesis', new Symbol('\\rrparenthesis', '\u2988'));
+                delimiter.add('\\llangle', new Symbol('\\llangle', '\u2989'));
+                delimiter.add('\\rrangle', new Symbol('\\rrangle', '\u298A'));
+                delimiter.add('\\Lbrbrak', new Symbol('\\Lbrbrak', '\u27EC'));
+                delimiter.add('\\Rbrbrak', new Symbol('\\Rbrbrak', '\u27ED'));
+                delimiter.add('\\lBrace', new Symbol('\\lBrace', '\u2983'));
+                delimiter.add('\\rBrace', new Symbol('\\rBrace', '\u2984'));
+                delimiter.add('\\lParen', new Symbol('\\lParen', '\u2985'));
+                delimiter.add('\\rParen', new Symbol('\\rParen', '\u2986'));
+                delimiter.add('\\lbrackubar', new Symbol('\\lbrackubar', '\u298B'));
+                delimiter.add('\\rbrackubar', new Symbol('\\rbrackubar', '\u298C'));
+                delimiter.add('\\lbrackultick', new Symbol('\\lbrackultick', '\u298D'));
+                delimiter.add('\\rbracklrtick', new Symbol('\\rbracklrtick', '\u298E'));
+                delimiter.add('\\lbracklltick', new Symbol('\\lbracklltick', '\u298F'));
+                delimiter.add('\\rbrackurtick', new Symbol('\\rbrackurtick', '\u2990'));
+                delimiter.add('\\langledot', new Symbol('\\langledot', '\u2991'));
+                delimiter.add('\\rangledot', new Symbol('\\rangledot', '\u2992'));
+                delimiter.add('\\lparenless', new Symbol('\\lparenless', '\u2993'));
+                delimiter.add('\\rparengtr', new Symbol('\\rparengtr', '\u2994'));
+                delimiter.add('\\Lparengtr', new Symbol('\\Lparengtr', '\u2995'));
+                delimiter.add('\\Rparenless', new Symbol('\\Rparenless', '\u2996'));
+                delimiter.add('\\lblkbrbrak', new Symbol('\\lblkbrbrak', '\u2997'));
+                delimiter.add('\\rblkbrbrak', new Symbol('\\rblkbrbrak', '\u2998'));
+                delimiter.add('\\lvzigzag', new Symbol('\\lvzigzag', '\u29D8'));
+                delimiter.add('\\rvzigzag', new Symbol('\\rvzigzag', '\u29D9'));
+                delimiter.add('\\Lvzigzag', new Symbol('\\Lvzigzag', '\u29DA'));
+                delimiter.add('\\Rvzigzag', new Symbol('\\Rvzigzag', '\u29DB'));
+                delimiter.add('\\lcurvyangle', new Symbol('\\lcurvyangle', '\u29FC'));
+                delimiter.add('\\rcurvyangle', new Symbol('\\rcurvyangle', '\u29FD'));
+                delimiter.add('\\Vvert', new Symbol('\\Vvert', '\u2980'));
+        }        // ready
+    },           // startup
+
+
+    tex: {
+        packages: {'[+]': ['tagformat', 'Lwarp-macros', 'textmacros']},
+        tags: "ams",
+                tagformat: {
+                        number: function (n) {
+                             if(MathJax.config.subequations==0)
+                                 return(MathJax.config.section + n);
+                             else
+                                 return(MathJax.config.section + String.fromCharCode(96+n));
+                        },
+                },
+    }
+}
+</script>
+
+
+<script
+        id="MathJax-script"
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+></script>
+
+</head>
+<body>
+
+
+<div class="bodywithoutsidetoc">
+
+
+<main class="bodycontainer">
+
+
+<section class="textbody">
+
+<a id="project-2-autofile-0"></a>
+
+<!--MathJax customizations:-->
+<div data-nosnippet
+    style="display:none"
+>
+
+\(\newcommand{\footnotename}{footnote}\)
+
+\(\def \LWRfootnote {1}\)
+
+\(\newcommand {\footnote }[2][\LWRfootnote ]{{}^{\mathrm {#1}}}\)
+
+\(\newcommand {\footnotemark }[1][\LWRfootnote ]{{}^{\mathrm {#1}}}\)
+
+\(\let \LWRorighspace \hspace \)
+
+\(\renewcommand {\hspace }{\ifstar \LWRorighspace \LWRorighspace }\)
+
+\(\newcommand {\mathnormal }[1]{{#1}}\)
+
+\(\newcommand \ensuremath [1]{#1}\)
+
+\(\newcommand {\LWRframebox }[2][]{\fbox {#2}} \newcommand {\framebox }[1][]{\LWRframebox } \)
+
+\(\newcommand {\setlength }[2]{}\)
+
+\(\newcommand {\addtolength }[2]{}\)
+
+\(\newcommand {\setcounter }[2]{}\)
+
+\(\newcommand {\addtocounter }[2]{}\)
+
+\(\newcommand {\arabic }[1]{}\)
+
+\(\newcommand {\number }[1]{}\)
+
+\(\newcommand {\noalign }[1]{\text {#1}\notag \\}\)
+
+\(\newcommand {\cline }[1]{}\)
+
+\(\newcommand {\directlua }[1]{\text {(directlua)}}\)
+
+\(\newcommand {\luatexdirectlua }[1]{\text {(directlua)}}\)
+
+\(\newcommand {\protect }{}\)
+
+\(\def \LWRabsorbnumber #1 {}\)
+
+\(\def \LWRabsorbquotenumber &quot;#1 {}\)
+
+\(\newcommand {\LWRabsorboption }[1][]{}\)
+
+\(\newcommand {\LWRabsorbtwooptions }[1][]{\LWRabsorboption }\)
+
+\(\def \mathchar {\ifnextchar &quot;\LWRabsorbquotenumber \LWRabsorbnumber }\)
+
+\(\def \mathcode #1={\mathchar }\)
+
+\(\let \delcode \mathcode \)
+
+\(\let \delimiter \mathchar \)
+
+\(\def \oe {\unicode {x0153}}\)
+
+\(\def \OE {\unicode {x0152}}\)
+
+\(\def \ae {\unicode {x00E6}}\)
+
+\(\def \AE {\unicode {x00C6}}\)
+
+\(\def \aa {\unicode {x00E5}}\)
+
+\(\def \AA {\unicode {x00C5}}\)
+
+\(\def \o {\unicode {x00F8}}\)
+
+\(\def \O {\unicode {x00D8}}\)
+
+\(\def \l {\unicode {x0142}}\)
+
+\(\def \L {\unicode {x0141}}\)
+
+\(\def \ss {\unicode {x00DF}}\)
+
+\(\def \SS {\unicode {x1E9E}}\)
+
+\(\def \dag {\unicode {x2020}}\)
+
+\(\def \ddag {\unicode {x2021}}\)
+
+\(\def \P {\unicode {x00B6}}\)
+
+\(\def \copyright {\unicode {x00A9}}\)
+
+\(\def \pounds {\unicode {x00A3}}\)
+
+\(\let \LWRref \ref \)
+
+\(\renewcommand {\ref }{\ifstar \LWRref \LWRref }\)
+
+\( \newcommand {\multicolumn }[3]{#3}\)
+
+\(\require {textcomp}\)
+
+\(\newcommand {\intertext }[1]{\text {#1}\notag \\}\)
+
+\(\let \Hat \hat \)
+
+\(\let \Check \check \)
+
+\(\let \Tilde \tilde \)
+
+\(\let \Acute \acute \)
+
+\(\let \Grave \grave \)
+
+\(\let \Dot \dot \)
+
+\(\let \Ddot \ddot \)
+
+\(\let \Breve \breve \)
+
+\(\let \Bar \bar \)
+
+\(\let \Vec \vec \)
+
+</div>
+
+<a id="project-2-autopage-1"></a>
+<div class="titlepage">
+
+<h1>Equation Playground and Log Page</h1>
+
+
+<div class="author">
+
+
+<div class="oneauthor">
+
+</div>
+
+</div>
+
+
+<div class="titledate">
+
+<p>
+January 23, 2026
+</p>
+</div>
+
+</div>
+<!--
+...... section Contents ......
+-->
+<h4 id="autosec-3">Contents</h4>
+<a id="project-2-autopage-3"></a>
+
+
+
+<nav class="toc">
+
+<p>
+<a href="project-2.html#autosec-6" class="tocsection" >
+<span class="sectionnumber">1</span>&#x2003;Basic Algebra</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-7" class="tocsection" >
+<span class="sectionnumber">2</span>&#x2003;Calculus</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-8" class="tocsection" >
+<span class="sectionnumber">3</span>&#x2003;Linear Algebra</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-9" class="tocsection" >
+<span class="sectionnumber">4</span>&#x2003;Probability and Statistics</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-10" class="tocsection" >
+<span class="sectionnumber">5</span>&#x2003;Logarithms (Log Page)</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-11" class="tocsubsection" >
+<span class="sectionnumber">5.1</span>&#x2003;Logarithm Identities</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-12" class="tocsubsection" >
+<span class="sectionnumber">5.2</span>&#x2003;Logarithmic Equations</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-13" class="tocsubsection" >
+<span class="sectionnumber">5.3</span>&#x2003;Logarithmic Series</a>
+</p>
+
+
+<p>
+<a href="project-2.html#autosec-14" class="tocsubsection" >
+<span class="sectionnumber">5.4</span>&#x2003;A Long Log Page Filler</a>
+</p>
+</nav>
+
+<figure id="autoid-1" class="figure ">
+<div class="center">
+
+<p>
+
+<a href="./figures/placeholder1.jpg" target="_blank" ><img
+     src="./figures/placeholder1.jpg"
+     style="
+     width:434pt;
+     "
+     class="inlineimage"
+     alt="(image)"
+></a>
+</p>
+
+<div class="figurecaption">
+<p>
+Figure&nbsp;1:&nbsp;System overview of the proposed method’s pipeline
+</p>
+</div>
+
+<a id="fig:systemoverview"></a>
+
+</div>
+
+</figure>
+<div class="abstract">
+
+
+<div class="abstracttitle">Abstract</div>
+
+<p>
+Nulla malesuada porttitor diam. Donec felis erat, congue non, volutpat at, tincidunt tristique, libero. Vivamus viverra fermentum felis. Donec nonummy pellentesque ante. Phasellus adipiscing semper elit. Proin fermentum massa
+ac quam. Sed diam turpis, molestie vitae, placerat a, molestie nec, leo. Maecenas lacinia. Nam ipsum ligula, eleifend at, accumsan nec, suscipit a, ipsum. Morbi blandit ligula feugiat magna. Nunc eleifend consequat lorem. Sed
+lacinia nulla vitae enim. Pellentesque tincidunt purus vel magna. Integer non enim. Praesent euismod nunc eu purus. Donec bibendum quam in tellus. Nullam cursus pulvinar lectus. Donec et mi. Nam vulputate metus eu enim.
+Vestibulum pellentesque felis eu massa.
+</p>
+Hello </div>
+<!--
+...... section Basic Algebra ......
+-->
+<h4 id="autosec-6"><span class="sectionnumber">1&#x2003;</span>Basic Algebra</h4>
+<a id="project-2-autopage-6"></a>
+
+
+<p>
+A simple quadratic equation:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{0}\)</span>
+
+<!--
+
+
+                                                                                              ax2 + bx + c = 0,                (1)
+
+-->
+
+<p>
+
+\begin{equation}
+ax^2 + bx + c = 0,
+\end{equation}
+
+</p>
+
+<p>
+with solutions
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{1}\)</span>
+
+<!--
+
+                                                                                                        √
+                                                                                                 −b ±        b2 − 4ac
+                                                                                          x=                          .        (2)
+                                                                                                            2a
+
+-->
+
+<p>
+
+\begin{equation}
+x = \frac {-b \pm \sqrt {b^2 - 4ac}}{2a}.
+\end{equation}
+
+</p>
+
+<p>
+Binomial theorem:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{2}\)</span>
+
+<!--
+
+                                                                                                     n  
+                                                                                                     X  n
+                                                                                    (x + y)n =                    xn−k y k .   (3)
+                                                                                                              k
+                                                                                                     k=0
+
+
+-->
+
+<p>
+
+\begin{equation}
+(x + y)^n = \sum _{k=0}^{n} \binom {n}{k} x^{n-k} y^k.
+\end{equation}
+
+</p>
+
+<p>
+Geometric series:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{3}\)</span>
+
+<!--
+
+                                                                                    n
+                                                                                    X            1 − rn+1
+                                                                                          rk =            ,          r ̸= 1.   (4)
+                                                                                                   1−r
+                                                                                    k=0
+
+
+-->
+
+<p>
+
+\begin{equation}
+\sum _{k=0}^{n} r^k = \frac {1 - r^{n+1}}{1 - r}, \qquad r \neq 1.
+\end{equation}
+
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{4}\)</span>
+
+
+<!--
+
+
+
+                                                                                      (a + b)2 = a2 + 2ab + b2 ,               (5)
+                                                                                                 2      2              2
+                                                                                      (a − b) = a − 2ab + b ,                  (6)
+                                                                                          2      2
+                                                                                      a − b = (a − b)(a + b).                  (7)
+
+
+
+-->
+
+
+<p>
+
+\begin{align}
+(a + b)^2 &amp; = a^2 + 2ab + b^2, \\ (a - b)^2 &amp; = a^2 - 2ab + b^2, \\ a^2 - b^2 &amp; = (a - b)(a + b).
+\end{align}
+
+</p>
+<!--
+...... section Calculus ......
+-->
+<h4 id="autosec-7"><span class="sectionnumber">2&#x2003;</span>Calculus</h4>
+<a id="project-2-autopage-7"></a>
+
+
+<p>
+Definition of the derivative:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{7}\)</span>
+
+<!--
+
+                                                                                                           f (x + h) − f (x)
+                                                                                     f ′ (x) = lim                           .                                                            (8)
+                                                                                                  h→0              h
+
+-->
+
+<p>
+
+\begin{equation}
+f&apos;(x) = \lim _{h \to 0} \frac {f(x + h) - f(x)}{h}.
+\end{equation}
+
+</p>
+
+<p>
+Fundamental theorem of calculus:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{8}\)</span>
+
+<!--
+
+                                                                                         Z b
+                                                                                               f ′ (x) dx = f (b) − f (a).                                                                (9)
+                                                                                          a
+
+
+-->
+
+<p>
+
+\begin{equation}
+\int _{a}^{b} f&apos;(x)\,dx = f(b) - f(a).
+\end{equation}
+
+</p>
+
+<p>
+Some common derivatives:
+</p>
+<span class="hidden"> \(\seteqnumber{0}{}{9}\)</span>
+
+
+<!--
+
+
+                                                                                                   d n
+                                                                                                     x = nxn−1 ,                                                                         (10)
+                                                                                                  dx
+                                                                                                   d x
+                                                                                                     e = ex ,                                                                            (11)
+                                                                                                  dx
+                                                                                                d
+                                                                                                  sin x = cos x,                                                                         (12)
+                                                                                               dx
+                                                                                                d
+                                                                                                  cos x = − sin x.                                                                       (13)
+                                                                                               dx
+
+
+-->
+
+
+<p>
+
+\begin{align}
+\frac {d}{dx} x^n &amp; = n x^{n-1}, \\ \frac {d}{dx} e^x &amp; = e^x, \\ \frac {d}{dx} \sin x &amp; = \cos x, \\ \frac {d}{dx} \cos x &amp; = -\sin x.
+\end{align}
+
+</p>
+
+<p>
+Some common integrals:
+</p>
+<span class="hidden"> \(\seteqnumber{0}{}{13}\)</span>
+
+
+<!--
+
+
+                                                                                                         xn+1
+                                                                                     Z
+                                                                                         xn dx =              + C,        n ̸= −1,                                                       (14)
+                                                                                                         n+1
+                                                                                     Z
+                                                                                          1
+                                                                                            dx = ln |x| + C,                                                                             (15)
+                                                                                          x
+                                                                                     Z
+                                                                                         ex dx = ex + C,                                                                                 (16)
+                                                                                 Z
+                                                                                     sin x dx = − cos x + C.                                                                             (17)
+
+
+
+-->
+
+
+<p>
+
+\begin{align}
+\int x^n\,dx &amp; = \frac {x^{n+1}}{n+1} + C, \quad n \neq -1, \\ \int \frac {1}{x}\,dx &amp; = \ln |x| + C, \\ \int e^x\,dx &amp; = e^x + C, \\ \int \sin x\,dx &amp; = -\cos x + C.
+\end{align}
+
+</p>
+
+<p>
+A multivariable integral:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{17}\)</span>
+
+<!--
+
+                                                                                                ZZ
+                                                                                                         (x2 + y 2 ) dA                                                                  (18)
+                                                                                                     D
+
+
+-->
+
+<p>
+
+\begin{equation}
+\iint _{D} (x^2 + y^2)\,dA
+\end{equation}
+
+</p>
+
+<p>
+over some domain \(D \subset \mathbb {R}^2\).
+</p>
+<!--
+...... section Linear Algebra ......
+-->
+<h4 id="autosec-8"><span class="sectionnumber">3&#x2003;</span>Linear Algebra</h4>
+<a id="project-2-autopage-8"></a>
+
+
+<p>
+Matrix equation:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{18}\)</span>
+
+<!--
+
+
+                                                                                                     Ax = b,                                                                                 (19)
+
+-->
+
+<p>
+
+\begin{equation}
+A \mathbf {x} = \mathbf {b},
+\end{equation}
+
+</p>
+
+<p>
+where
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{19}\)</span>
+
+<!--
+
+                                                                                                                             
+                                                                             a11     a12   ···    a1n             x1           b1
+                                                                            a21     a22   ···    a2n           x2         b2 
+                                                                         A= .                     ..  ,   x =  . ,   b =  . .                                                          (20)
+                                                                                                                          
+                                                                                      ..   ..
+                                                                            ..        .      .     .           ..         .. 
+                                                                               am1   am2   ···    amn              xn         bm
+
+-->
+
+<p>
+
+\begin{equation}
+A = \begin{bmatrix} a_{11} &amp; a_{12} &amp; \cdots &amp; a_{1n} \\ a_{21} &amp; a_{22} &amp; \cdots &amp; a_{2n} \\ \vdots &amp; \vdots &amp; \ddots &amp; \vdots \\ a_{m1} &amp; a_{m2} &amp;
+\cdots &amp; a_{mn} \end {bmatrix}, \quad \mathbf {x} = \begin{bmatrix} x_1 \\ x_2 \\ \vdots \\ x_n \end {bmatrix}, \quad \mathbf {b} = \begin{bmatrix} b_1 \\ b_2 \\ \vdots \\ b_m \end
+{bmatrix}.
+\end{equation}
+
+</p>
+
+<p>
+Determinant of a \(2 \times 2\) matrix:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{20}\)</span>
+
+<!--
+
+                                                                                                       
+                                                                                                a     b
+                                                                                           det            = ad − bc.                                                                         (21)
+                                                                                                 c    d
+
+-->
+
+<p>
+
+\begin{equation}
+\det \begin{bmatrix} a &amp; b \\ c &amp; d \end {bmatrix} = ad - bc.
+\end{equation}
+
+</p>
+
+<p>
+Eigenvalue equation:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{21}\)</span>
+
+<!--
+
+
+                                                                                                     Av = λv.                                                                                (22)
+
+-->
+
+<p>
+
+\begin{equation}
+A \mathbf {v} = \lambda \mathbf {v}.
+\end{equation}
+
+</p>
+<!--
+...... section Probability and Statistics ......
+-->
+<h4 id="autosec-9"><span class="sectionnumber">4&#x2003;</span>Probability and Statistics</h4>
+<a id="project-2-autopage-9"></a>
+
+
+<p>
+Probability of event \(A\):
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{22}\)</span>
+
+<!--
+
+                                                                                              number of favorable outcomes
+                                                                                    P (A) =                                .           (23)
+                                                                                                total number of outcomes
+
+-->
+
+<p>
+
+\begin{equation}
+P(A) = \frac {\text {number of favorable outcomes}}{\text {total number of outcomes}}.
+\end{equation}
+
+</p>
+
+<p>
+Linearity of expectation:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{23}\)</span>
+
+<!--
+
+                                                                                                  " n    #     n
+                                                                                                   X           X
+                                                                                              E         Xi =         E[Xi ].           (24)
+                                                                                                  i=1          i=1
+
+
+-->
+
+<p>
+
+\begin{equation}
+\mathbb {E}\left [\sum _{i=1}^{n} X_i\right ] = \sum _{i=1}^{n} \mathbb {E}[X_i].
+\end{equation}
+
+</p>
+
+<p>
+Variance:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{24}\)</span>
+
+<!--
+
+                                                                                                                2
+                                                                                         Var(X) = E[X 2 ] − E[X] .                     (25)
+
+-->
+
+<p>
+
+\begin{equation}
+\operatorname {Var}(X) = \mathbb {E}[X^2] - \big (\mathbb {E}[X]\big )^2.
+\end{equation}
+
+</p>
+
+<p>
+Normal distribution pdf:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{25}\)</span>
+
+<!--
+
+                                                                                                            (x − µ)2
+                                                                                                                              
+                                                                                                    1
+                                                                                      f (x) = √       exp −                        .   (26)
+                                                                                                2πσ 2         2σ 2
+
+-->
+
+<p>
+
+\begin{equation}
+f(x) = \frac {1}{\sqrt {2\pi \sigma ^2}} \exp \left ( -\frac {(x - \mu )^2}{2\sigma ^2} \right ).
+\end{equation}
+
+</p>
+
+<p>
+Bayes’ theorem:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{26}\)</span>
+
+<!--
+
+                                                                                                          P (B | A)P (A)
+                                                                                         P (A | B) =                     .             (27)
+                                                                                                              P (B)
+
+-->
+
+<p>
+
+\begin{equation}
+P(A \mid B) = \frac {P(B \mid A) P(A)}{P(B)}.
+\end{equation}
+
+</p>
+<!--
+...... section Logarithms (Log Page) ......
+-->
+<h4 id="autosec-10"><span class="sectionnumber">5&#x2003;</span>Logarithms (Log Page)</h4>
+<a id="project-2-autopage-10"></a>
+
+
+<p>
+Basic definition:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{27}\)</span>
+
+<!--
+
+
+                                                                                       loga b = c   ⇐⇒        ac = b,   (28)
+
+-->
+
+<p>
+
+\begin{equation}
+\log _a b = c \quad \Longleftrightarrow \quad a^c = b,
+\end{equation}
+
+</p>
+
+<p>
+for \(a &gt; 0\), \(a \neq 1\), and \(b &gt; 0\).
+</p>
+
+<p>
+Change of base:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{28}\)</span>
+
+<!--
+
+                                                                                                        logc b
+                                                                                             loga b =          .        (29)
+                                                                                                        logc a
+
+-->
+
+<p>
+
+\begin{equation}
+\log _a b = \frac {\log _c b}{\log _c a}.
+\end{equation}
+
+</p>
+<!--
+...... subsection Logarithm Identities ......
+-->
+<h5 id="autosec-11"><span class="sectionnumber">5.1&#x2003;</span>Logarithm Identities</h5>
+<a id="project-2-autopage-11"></a>
+
+
+<p>
+For \(a &gt; 0\), \(a \neq 1\), and \(x,y &gt; 0\):
+</p>
+<span class="hidden"> \(\seteqnumber{0}{}{29}\)</span>
+
+
+<!--
+
+
+
+                                                                                          loga (xy) = loga x + loga y,                                                                         (30)
+                                                                                              
+                                                                                                x
+                                                                                        loga        = loga x − loga y,                                                                         (31)
+                                                                                                y
+                                                                                         loga (xk ) = k loga x,                                                                                (32)
+                                                                                              loga a = 1,                                                                                      (33)
+                                                                                              loga 1 = 0.                                                                                      (34)
+
+
+
+-->
+
+
+<p>
+
+\begin{align}
+\log _a (xy) &amp; = \log _a x + \log _a y, \\ \log _a \left (\frac {x}{y}\right ) &amp; = \log _a x - \log _a y, \\ \log _a (x^k) &amp; = k \log _a x, \\ \log _a a &amp; = 1, \\ \log _a 1
+&amp; = 0.
+\end{align}
+
+</p>
+
+<p>
+Natural logarithm:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{34}\)</span>
+
+<!--
+
+
+                                                                                                 ln x = loge x.                                                                                (35)
+
+-->
+
+<p>
+
+\begin{equation}
+\ln x = \log _e x.
+\end{equation}
+
+</p>
+
+<p>
+Derivative of the natural logarithm:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{35}\)</span>
+
+<!--
+
+                                                                                                  d       1
+                                                                                                    ln x = .                                                                                   (36)
+                                                                                                 dx       x
+
+-->
+
+<p>
+
+\begin{equation}
+\frac {d}{dx} \ln x = \frac {1}{x}.
+\end{equation}
+
+</p>
+
+<p>
+Derivative of a general logarithm:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{36}\)</span>
+
+<!--
+
+                                                                                               d             1
+                                                                                                 loga x =        .                                                                             (37)
+                                                                                              dx          x ln a
+
+-->
+
+<p>
+
+\begin{equation}
+\frac {d}{dx} \log _a x = \frac {1}{x \ln a}.
+\end{equation}
+
+</p>
+
+<p>
+An integral involving logarithms:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{37}\)</span>
+
+<!--
+
+                                                                                        Z
+                                                                                            ln x dx = x ln x − x + C.                                                                          (38)
+
+-->
+
+<p>
+
+\begin{equation}
+\int \ln x\,dx = x \ln x - x + C.
+\end{equation}
+
+</p>
+<!--
+...... subsection Logarithmic Equations ......
+-->
+<h5 id="autosec-12"><span class="sectionnumber">5.2&#x2003;</span>Logarithmic Equations</h5>
+<a id="project-2-autopage-12"></a>
+
+
+<p>
+Solve
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{38}\)</span>
+
+<!--
+
+
+                                                                                      log2 (x − 1) + log2 (x + 3) = 4.                (39)
+
+-->
+
+<p>
+
+\begin{equation}
+\log _2 (x - 1) + \log _2 (x + 3) = 4.
+\end{equation}
+
+</p>
+
+<p>
+Using the product rule:
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{39}\)</span>
+
+<!--
+
+
+                                                                                                          (x − 1)(x + 3) = 24 = 16.
+                                                                                            
+                                                                         log2 (x − 1)(x + 3) = 4   =⇒                                 (40)
+
+-->
+
+<p>
+
+\begin{equation}
+\log _2 \big ((x - 1)(x + 3)\big ) = 4 \quad \Longrightarrow \quad (x - 1)(x + 3) = 2^4 = 16.
+\end{equation}
+
+</p>
+
+<p>
+Thus
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{40}\)</span>
+
+<!--
+
+
+                                                                                x2 + 2x − 3 = 16   =⇒     x2 + 2x − 19 = 0.           (41)
+
+-->
+
+<p>
+
+\begin{equation}
+x^2 + 2x - 3 = 16 \quad \Longrightarrow \quad x^2 + 2x - 19 = 0.
+\end{equation}
+
+</p>
+<!--
+...... subsection Logarithmic Series ......
+-->
+<h5 id="autosec-13"><span class="sectionnumber">5.3&#x2003;</span>Logarithmic Series</h5>
+<a id="project-2-autopage-13"></a>
+
+
+<p>
+For \(|x| &lt; 1\):
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{41}\)</span>
+
+<!--
+
+                                                                                                      ∞
+                                                                                                      X               xn
+                                                                                        ln(1 + x) =         (−1)n+1      .        (42)
+                                                                                                      n=1
+                                                                                                                      n
+
+-->
+
+<p>
+
+\begin{equation}
+\ln (1 + x) = \sum _{n=1}^{\infty } (-1)^{n+1} \frac {x^n}{n}.
+\end{equation}
+
+</p>
+
+<p>
+For \(x &gt; -1\), \(x \neq 0\):
+</p>
+
+<span class="hidden"> \(\seteqnumber{0}{}{42}\)</span>
+
+<!--
+
+                                                                                            ∞                        2n+1
+                                                                                            X        1          x−1
+                                                                                     ln x = 2                                 .   (43)
+                                                                                              n=0
+                                                                                                  2n +1         x+1
+
+-->
+
+<p>
+
+\begin{equation}
+\ln x = 2 \sum _{n=0}^{\infty } \frac {1}{2n+1} \left (\frac {x-1}{x+1}\right )^{2n+1}.
+\end{equation}
+
+</p>
+<!--
+...... subsection A Long Log Page Filler ......
+-->
+<h5 id="autosec-14"><span class="sectionnumber">5.4&#x2003;</span>A Long Log Page Filler</h5>
+<a id="project-2-autopage-14"></a>
+
+
+<p>
+Here is some filler text to make this a long page:
+</p>
+
+<p>
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Ut purus elit, vestibulum ut, placerat ac, adipiscing vitae, felis. Curabitur dictum gravida mauris. Nam arcu libero, nonummy eget, consectetuer id, vulputate a, magna.
+Donec vehicula augue eu neque. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Mauris ut leo. Cras viverra metus rhoncus sem. Nulla et lectus vestibulum urna fringilla ultrices.
+Phasellus eu tellus sit amet tortor gravida placerat. Integer sapien est, iaculis in, pretium quis, viverra ac, nunc. Praesent eget sem vel leo ultrices bibendum. Aenean faucibus. Morbi dolor nulla, malesuada eu, pulvinar at, mollis
+ac, nulla. Curabitur auctor semper nulla. Donec varius orci eget risus. Duis nibh mi, congue eu, accumsan eleifend, sagittis quis, diam. Duis eget orci sit amet orci dignissim rutrum.
+</p>
+
+
+<p>
+Nam dui ligula, fringilla a, euismod sodales, sollicitudin vel, wisi. Morbi auctor lorem non justo. Nam lacus libero, pretium at, lobortis vitae, ultricies et, tellus. Donec aliquet, tortor sed accumsan bibendum, erat ligula aliquet
+magna, vitae ornare odio metus a mi. Morbi ac orci et nisl hendrerit mollis. Suspendisse ut massa. Cras nec ante. Pellentesque a nulla. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
+Aliquam tincidunt urna. Nulla ullamcorper vestibulum turpis. Pellentesque cursus luctus mauris.
+</p>
+
+
+<p>
+Nulla malesuada porttitor diam. Donec felis erat, congue non, volutpat at, tincidunt tristique, libero. Vivamus viverra fermentum felis. Donec nonummy pellentesque ante. Phasellus adipiscing semper elit. Proin fermentum massa
+ac quam. Sed diam turpis, molestie vitae, placerat a, molestie nec, leo. Maecenas lacinia. Nam ipsum ligula, eleifend at, accumsan nec, suscipit a, ipsum. Morbi blandit ligula feugiat magna. Nunc eleifend consequat lorem. Sed
+lacinia nulla vitae enim. Pellentesque tincidunt purus vel magna. Integer non enim. Praesent euismod nunc eu purus. Donec bibendum quam in tellus. Nullam cursus pulvinar lectus. Donec et mi. Nam vulputate metus eu enim.
+Vestibulum pellentesque felis eu massa.
+</p>
+
+
+<a id="project-2-autofile-last"></a>
+</section>
+
+</main>
+
+</div>
+
+</body>
+</html>
