@@ -1,3 +1,6 @@
+
+	
+	
 [submodule "content"]
 	path = content
-	url = https://github.com/jzsofi/website_content.git
+	url = https://github.com/jzsofi/website_content
